@@ -8,35 +8,21 @@ Integrate GitNexus graph intelligence into GSD (Get Shit Done) workflows for Cur
 - Your project indexed with `npx gitnexus analyze`
 - [GSD](https://github.com/coleam00/get-shit-done) installed (`.planning/` directory present)
 
-## Quick Start
-
-### 1. Add the User Rule (global, all projects)
-
-```bash
-npx gitnexus-gsd
-```
-
-Copy the output text and paste it into **Cursor Settings > General > Rules for AI**.
-
-This gives every GSD session across all your projects the instruction to prefer GitNexus.
-
-### 2. Add Per-Project Rules (optional, recommended)
+## Install
 
 ```bash
 npx gitnexus-gsd init
 ```
 
-This writes a `.cursor/rules/gitnexus-gsd-integration.mdc` project rule with detailed per-workflow instructions, and patches `AGENTS.md` / `CLAUDE.md` with a summary block.
+Run this in your project root. It installs a `.cursor/rules/gitnexus-gsd-integration.mdc` file with detailed per-workflow instructions, and patches `AGENTS.md` / `CLAUDE.md` with a summary block.
+
+That's it. No global settings to configure, no SQLite to touch.
 
 ## How It Works
 
-The package uses a two-layer approach:
+`init` adds a project rule (`.cursor/rules/gitnexus-gsd-integration.mdc`) with `alwaysApply: true`. This means every agent working in the project -- including GSD subagents like `gsd-phase-researcher`, `gsd-pattern-mapper`, and `gsd-codebase-mapper` -- receives the GitNexus-first instruction automatically.
 
-**User Rule (global)** -- A compact rule pasted into Cursor Settings that tells any GSD agent to try GitNexus MCP tools before grep/glob. Works across all projects without any project-level files.
-
-**Project Rule (local)** -- An `.mdc` file with detailed instructions for each GSD workflow step (scout_codebase, pattern mapping, map-codebase, scan). Provides the agent with exact tool calls and fallback logic per workflow.
-
-Both layers are additive. The User Rule ensures GitNexus is tried first even in projects without `init`. The Project Rule gives agents precise, step-by-step guidance for each GSD workflow.
+The rule is version-controlled, survives `gsd-update`, and works identically on Windows, Mac, and Linux.
 
 ## GSD Workflows Affected
 
@@ -59,8 +45,6 @@ GitNexus is skipped and the default GSD approach is used when:
 ## Commands
 
 ```
-npx gitnexus-gsd              Print the User Rule text with paste instructions
-npx gitnexus-gsd user-rule    Same as above
 npx gitnexus-gsd init         Install project-level .mdc rule and patch AGENTS.md/CLAUDE.md
 npx gitnexus-gsd uninstall    Remove project-level files and patch blocks
 npx gitnexus-gsd help         Show available commands
@@ -72,7 +56,7 @@ npx gitnexus-gsd help         Show available commands
 npx gitnexus-gsd uninstall
 ```
 
-This removes the `.cursor/rules/gitnexus-gsd-integration.mdc` file and the `<!-- gitnexus-gsd:start -->` blocks from `AGENTS.md` and `CLAUDE.md`. You will need to manually remove the User Rule from Cursor Settings.
+Removes `.cursor/rules/gitnexus-gsd-integration.mdc` and the `<!-- gitnexus-gsd:start -->` blocks from `AGENTS.md` and `CLAUDE.md`.
 
 ## License
 
