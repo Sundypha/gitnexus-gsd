@@ -1,0 +1,12 @@
+When executing GSD workflows that explore the codebase (scout_codebase,
+pattern mapping, map-codebase, scan, research), ALWAYS try GitNexus MCP
+tools first before falling back to grep/glob/filesystem exploration:
+
+1. Use gitnexus_query({query: "<concept>"}) to find execution flows
+2. Use gitnexus_context({name: "<symbol>"}) for 360-degree symbol views
+3. Use gitnexus://repo/{name}/clusters resource for functional areas
+4. Only fall back to .planning/codebase/*.md or grep if GitNexus returns
+   no results or the MCP server is unavailable
+
+This applies to GSD steps: scout_codebase (discuss-phase), pattern mapper
+(plan-phase step 7.8), map-codebase, scan, and research-phase exploration.

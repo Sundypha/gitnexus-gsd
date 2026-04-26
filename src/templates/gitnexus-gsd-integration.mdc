@@ -1,0 +1,44 @@
+---
+description: GSD workflows use GitNexus graph intelligence before codebase mapper
+alwaysApply: true
+---
+
+# GitNexus-First Codebase Exploration for GSD
+
+When executing GSD workflows that explore the codebase, prefer GitNexus
+MCP tools over grep/glob/filesystem exploration. Fall back to the default
+GSD approach only when GitNexus returns no results or is unavailable.
+
+## Priority: GitNexus > .planning/codebase/ > grep
+
+## scout_codebase (discuss-phase)
+
+Before reading .planning/codebase/*.md or doing targeted grep:
+1. Extract key terms from the phase goal
+2. gitnexus_query({query: "<terms>", limit: 5, max_symbols: 15})
+3. For key symbols: gitnexus_context({name: "<symbol>"})
+4. Build codebase_context from results (assets, patterns, integration points)
+5. Fall back to .planning/codebase/ or grep only if GitNexus returns empty
+
+## Pattern mapping (plan-phase step 7.8)
+
+Before spawning gsd-pattern-mapper:
+1. Extract symbol names from CONTEXT.md and RESEARCH.md
+2. gitnexus_context for key symbols, gitnexus_query for feature areas
+3. If GitNexus provides sufficient analog patterns, write PATTERNS.md
+   directly and skip the mapper agent spawn
+4. Spawn gsd-pattern-mapper only if coverage is insufficient
+
+## map-codebase / scan
+
+When running /gsd-map-codebase or /gsd-scan:
+1. Fetch gitnexus://repo/{name}/clusters for functional areas
+2. gitnexus_query with broad terms per cluster
+3. Seed mapper agent prompts with graph-sourced data
+
+## Fallback triggers
+
+Use default GSD approach when:
+- gitnexus_query returns 0 processes
+- GitNexus warns index is stale (run npx gitnexus analyze)
+- MCP server is unavailable

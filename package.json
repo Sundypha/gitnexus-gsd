@@ -1,0 +1,31 @@
+{
+  "name": "gitnexus-gsd",
+  "version": "0.1.0",
+  "description": "Integrate GitNexus graph intelligence into GSD workflows for Cursor IDE",
+  "main": "src/index.js",
+  "bin": {
+    "gitnexus-gsd": "./bin/cli.js"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "keywords": [
+    "gitnexus",
+    "gsd",
+    "cursor",
+    "mcp",
+    "code-intelligence"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": "github:Sundypha/gitnexus-gsd",
+  "engines": {
+    "node": ">=16.0.0"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "LICENSE",
+    "README.md"
+  ]
+}
