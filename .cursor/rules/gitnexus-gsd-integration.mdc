@@ -1,25 +1,16 @@
+<!-- gitnexus-gsd v0.1.0 -->
 ---
-description: Use GitNexus graph intelligence before grep or file exploration for any codebase question or GSD workflow
+description: GSD workflows use GitNexus graph intelligence before codebase mapper
 alwaysApply: true
 ---
 
-# GitNexus-First Codebase Exploration
+# GitNexus-First Codebase Exploration for GSD
 
-For ANY question about how the codebase works -- how a feature is implemented,
-where something is stored, how data flows, what calls what -- query GitNexus
-before reaching for Grep, Glob, or Shell. Fall back to filesystem exploration
-only when GitNexus returns no results or is unavailable.
+When executing GSD workflows that explore the codebase, prefer GitNexus
+MCP tools over grep/glob/filesystem exploration. Fall back to the default
+GSD approach only when GitNexus returns no results or is unavailable.
 
-## Priority: GitNexus > .planning/codebase/ > grep/glob/shell
-
-## General codebase questions
-
-When the user asks anything about how the code works (e.g. "how are X stored?",
-"where is Y handled?", "is Z encrypted?", "what calls this?"):
-1. gitnexus_query({query: "<key concept from the question>"})
-2. gitnexus_context({name: "<symbol>"}) for any relevant symbol returned
-3. Read source files only to confirm implementation details
-4. Fall back to Grep/Glob/Shell only if GitNexus returns 0 results
+## Priority: GitNexus > .planning/codebase/ > grep
 
 ## scout_codebase (discuss-phase)
 
@@ -48,7 +39,7 @@ When running /gsd-map-codebase or /gsd-scan:
 
 ## Fallback triggers
 
-Use filesystem exploration when:
+Use default GSD approach when:
 - gitnexus_query returns 0 processes
 - GitNexus warns index is stale (run npx gitnexus analyze)
 - MCP server is unavailable
