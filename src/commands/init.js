@@ -37,7 +37,13 @@ function run(cwd) {
   const mdcLabel = mdcResult === 'unchanged' ? 'unchanged' : mdcResult;
   log(`${GREEN}+${RESET}`, `.cursor/rules/gitnexus-gsd-integration.mdc (${mdcLabel})`);
 
-  // 2. Patch AGENTS.md and CLAUDE.md
+  // 2. Write project-level skill (picked up by GSD subagents via agent-skills injection)
+  const skillPath = path.join(cwd, '.cursor', 'skills', 'gitnexus-gsd', 'SKILL.md');
+  const skillContent = readTemplate('skills/gitnexus-gsd/SKILL.md');
+  const skillResult = writeIfChanged(skillPath, skillContent);
+  log(`${GREEN}+${RESET}`, `.cursor/skills/gitnexus-gsd/SKILL.md (${skillResult === 'unchanged' ? 'unchanged' : skillResult})`);
+
+  // 3. Patch AGENTS.md and CLAUDE.md
   const sectionContent = readTemplate('agents-md-section.md');
   for (const filename of ['AGENTS.md', 'CLAUDE.md']) {
     const filePath = path.join(cwd, filename);

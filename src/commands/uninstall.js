@@ -18,7 +18,20 @@ function run(cwd) {
     log(`${DIM}-${RESET}`, `.cursor/rules/gitnexus-gsd-integration.mdc not found, skipping.`);
   }
 
-  // 2. Remove patch blocks from AGENTS.md and CLAUDE.md
+  // 2. Remove project-level skill
+  const skillPath = path.join(cwd, '.cursor', 'skills', 'gitnexus-gsd', 'SKILL.md');
+  if (fs.existsSync(skillPath)) {
+    fs.unlinkSync(skillPath);
+    log(`${GREEN}x${RESET}`, `Removed .cursor/skills/gitnexus-gsd/SKILL.md`);
+    const skillDir = path.dirname(skillPath);
+    if (fs.existsSync(skillDir) && fs.readdirSync(skillDir).length === 0) {
+      fs.rmdirSync(skillDir);
+    }
+  } else {
+    log(`${DIM}-${RESET}`, `.cursor/skills/gitnexus-gsd/SKILL.md not found, skipping.`);
+  }
+
+  // 3. Remove patch blocks from AGENTS.md and CLAUDE.md
   for (const filename of ['AGENTS.md', 'CLAUDE.md']) {
     const filePath = path.join(cwd, filename);
     const result = removePatchBlock(filePath);
@@ -36,7 +49,7 @@ function run(cwd) {
   }
 
   console.log();
-  console.log(`${YELLOW}Reminder:${RESET} Manually remove the User Rule from Cursor Settings > General > Rules for AI.`);
+  console.log(`${BOLD}Done.${RESET} All gitnexus-gsd project files removed.`);
   console.log();
 }
 
