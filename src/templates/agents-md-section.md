@@ -1,10 +1,10 @@
 <!-- gitnexus-gsd:start -->
 ## GSD + GitNexus Integration
 
-When executing GSD codebase exploration workflows (scout_codebase, pattern
-mapping, map-codebase, scan), prefer GitNexus MCP tools over the default
-codebase mapper. Use `gitnexus_query` and `gitnexus_context` first; fall
-back to `.planning/codebase/*.md` or grep only when GitNexus returns no
-results. See `.cursor/rules/gitnexus-gsd-integration.mdc` for step-by-step
-instructions per GSD workflow.
+For **all** GSD workflows (discuss, plan, execute, verify, code review, security review,
+audits, map-codebase, scan, fixers, etc.), use GitNexus MCP before grep-first exploration
+of application code. Subagents inherit this. Step-by-step per workflow:
+`.cursor/rules/gitnexus-gsd-integration.mdc`.
+
+> Run `npx gitnexus-gsd init` to configure project-specific index routing.
 <!-- gitnexus-gsd:end -->

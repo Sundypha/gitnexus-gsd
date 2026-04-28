@@ -2,7 +2,11 @@
 
 const fs = require('fs');
 const path = require('path');
-const { removePatchBlock, log, BOLD, RESET, GREEN, DIM, YELLOW } = require('../utils/files');
+const { removePatchBlock, log, BOLD, RESET, GREEN, DIM } = require('../utils/files');
+const { removeConfig } = require('../utils/config');
+const { removeAgentSkills } = require('../utils/config-patch');
+
+const SKILL_RELATIVE_PATH = '.cursor/skills/gitnexus-gsd';
 
 function run(cwd) {
   console.log();
@@ -46,6 +50,28 @@ function run(cwd) {
         log(`${GREEN}x${RESET}`, `${filename} block removed.`);
         break;
     }
+  }
+
+  // 4. Remove agent_skills entries from .planning/config.json
+  const agentResult = removeAgentSkills(cwd, SKILL_RELATIVE_PATH);
+  switch (agentResult) {
+    case 'cleaned':
+      log(`${GREEN}x${RESET}`, `.planning/config.json agent_skills entries removed.`);
+      break;
+    case 'unchanged':
+      log(`${DIM}-${RESET}`, `.planning/config.json agent_skills had no gitnexus-gsd entries.`);
+      break;
+    case 'not_found':
+      log(`${DIM}-${RESET}`, `.planning/config.json not found, skipping.`);
+      break;
+  }
+
+  // 5. Remove .gitnexus-gsd.json
+  const removed = removeConfig(cwd);
+  if (removed) {
+    log(`${GREEN}x${RESET}`, `Removed .gitnexus-gsd.json`);
+  } else {
+    log(`${DIM}-${RESET}`, `.gitnexus-gsd.json not found, skipping.`);
   }
 
   console.log();
