@@ -1,6 +1,6 @@
 {
   "name": "gitnexus-gsd",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "Integrate GitNexus graph intelligence into GSD workflows for Cursor IDE",
   "main": "src/index.js",
   "bin": {

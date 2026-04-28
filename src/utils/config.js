@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const CONFIG_FILENAME = '.gitnexus-gsd.json';
-const CURRENT_VERSION = '0.4.0';
+const CURRENT_VERSION = '0.5.0';
 
 /**
  * Load .gitnexus-gsd.json from the given project root.
