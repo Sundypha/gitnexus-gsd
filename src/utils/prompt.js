@@ -1,63 +1,62 @@
 'use strict';
 
 const readline = require('readline');
-const { BOLD, RESET, DIM, GREEN, YELLOW } = require('./files');
+const { BOLD, RESET, DIM, GREEN, YELLOW, RED } = require('./files');
 
-/**
- * Ask a single yes/no question. Returns true for yes, false for no.
- *
- * @param {readline.Interface} rl
- * @param {string} question  Must include the [Y/n] or [y/N] hint.
- * @param {boolean} defaultYes
- * @returns {Promise<boolean>}
- */
+function createRl() {
+  return readline.createInterface({ input: process.stdin, output: process.stdout });
+}
+
 function askYesNo(rl, question, defaultYes = true) {
   return new Promise((resolve) => {
     rl.question(`  ${question} `, (answer) => {
-      const trimmed = answer.trim().toLowerCase();
-      if (!trimmed) return resolve(defaultYes);
-      resolve(trimmed === 'y' || trimmed === 'yes');
+      const t = answer.trim().toLowerCase();
+      resolve(t ? t === 'y' || t === 'yes' : defaultYes);
     });
   });
 }
 
-/**
- * Ask a free-text question with an optional default value shown in brackets.
- *
- * @param {readline.Interface} rl
- * @param {string} question
- * @param {string} [defaultValue]
- * @returns {Promise<string>}
- */
 function askText(rl, question, defaultValue) {
   const hint = defaultValue ? ` ${DIM}[${defaultValue}]${RESET}` : '';
   return new Promise((resolve) => {
     rl.question(`  ${question}${hint}: `, (answer) => {
-      const trimmed = answer.trim();
-      resolve(trimmed || defaultValue || '');
+      resolve(answer.trim() || defaultValue || '');
+    });
+  });
+}
+
+function askNumber(rl, question, min, max, defaultVal) {
+  return new Promise((resolve) => {
+    const hint = ` ${DIM}[${defaultVal}]${RESET}`;
+    rl.question(`  ${question}${hint}: `, (answer) => {
+      const n = parseInt(answer.trim(), 10);
+      resolve(n >= min && n <= max ? n : defaultVal);
     });
   });
 }
 
 /**
- * Interactively gather index configuration from the user.
+ * Resolve index configuration interactively.
  *
- * Flow:
- *  1. If detectedIndexes has entries: show them and ask "Use these? [Y/n]"
- *     - If yes: ask each index's directory scope (pre-filled)
- *     - If no: fall through to manual entry
- *  2. Manual entry loop: name, scope, add another?
- *  3. If >1 index: ask which one is the full-repo (detect_changes) index
+ * detectedIndexes comes from detectGitNexusIndexes() — entries already
+ * filtered to this project from ~/.gitnexus/registry.json.
+ * Each entry: { name, scope, stats? }
  *
- * @param {Array<{ name: string, path: string }>} detectedIndexes
- * @returns {Promise<Array<{ name: string, path: string, detectChanges: boolean }>>}
+ * Flow A — indexes found in registry (happy path, zero typing):
+ *   • Show the list with scope and node counts
+ *   • 1 index  → confirm with Y/n
+ *   • 2+ indexes → confirm or let user deselect unwanted ones
+ *   • If >1 remain, auto-pick the root-scope one as detect_changes;
+ *     if ambiguous, ask user to choose by number
+ *
+ * Flow B — no registry matches:
+ *   • Warn the user to run `npx gitnexus analyze` first
+ *   • Offer manual fallback (type index names) for advanced users
+ *
+ * Returns Array<{ name, scope, detectChanges }>
  */
 async function promptIndexes(detectedIndexes) {
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-
+  const rl = createRl();
   try {
     return await _promptIndexes(rl, detectedIndexes);
   } finally {
@@ -67,103 +66,124 @@ async function promptIndexes(detectedIndexes) {
 
 async function _promptIndexes(rl, detectedIndexes) {
   console.log();
-  console.log(`${BOLD}Configure GitNexus indexes${RESET}`);
-  console.log(
-    `${DIM}GitNexus works best with one index per language. For monorepos, create${RESET}`
-  );
-  console.log(
-    `${DIM}one index per major language root (e.g. backend/, frontend/).${RESET}`
-  );
+  console.log(`${BOLD}GitNexus indexes${RESET}`);
   console.log();
 
-  let indexes = [];
-
+  // ── Flow A: registry matches found ──────────────────────────────────────
   if (detectedIndexes.length > 0) {
-    const names = detectedIndexes.map((i) => `${BOLD}${i.name}${RESET}`).join(', ');
-    console.log(`  ${GREEN}Detected indexes:${RESET} ${names}`);
+    console.log(`  Found ${detectedIndexes.length} index${detectedIndexes.length > 1 ? 'es' : ''} for this project:`);
     console.log();
 
-    const useDetected = await askYesNo(rl, `Use detected indexes? ${DIM}[Y/n]${RESET}`, true);
+    for (let i = 0; i < detectedIndexes.length; i++) {
+      const idx = detectedIndexes[i];
+      const scopeLabel = idx.scope === '.' ? 'full repo' : idx.scope;
+      const nodes = idx.stats && idx.stats.nodes ? ` ${DIM}${idx.stats.nodes.toLocaleString()} symbols${RESET}` : '';
+      console.log(`    ${BOLD}${i + 1}.${RESET}  ${BOLD}${idx.name}${RESET}${nodes}`);
+      console.log(`         scope: ${scopeLabel}`);
+    }
 
-    if (useDetected) {
-      // Confirm or override the path scope for each
-      for (const detected of detectedIndexes) {
-        const scopePath = await askText(
-          rl,
-          `  Scope for ${BOLD}${detected.name}${RESET} (directory, ${DIM}. = full repo${RESET})`,
-          detected.path || '.'
-        );
-        indexes.push({ name: detected.name, path: scopePath || '.' });
-      }
+    console.log();
+    const confirmed = await askYesNo(rl, `Use ${detectedIndexes.length === 1 ? 'this index' : 'these indexes'}? ${DIM}[Y/n]${RESET}`, true);
+
+    if (confirmed) {
+      return resolveDetectChanges(detectedIndexes);
+    }
+
+    // User said no — allow deselection of individual entries
+    console.log();
+    console.log(`  ${DIM}Enter numbers to remove (comma-separated), or press Enter to keep all:${RESET}`);
+    const removeStr = await new Promise((resolve) =>
+      rl.question('  Remove: ', (a) => resolve(a.trim()))
+    );
+
+    let kept = [...detectedIndexes];
+    if (removeStr) {
+      const toRemove = new Set(
+        removeStr.split(',').map((s) => parseInt(s.trim(), 10) - 1)
+      );
+      kept = detectedIndexes.filter((_, i) => !toRemove.has(i));
+    }
+
+    if (kept.length > 0) {
+      return resolveDetectChanges(kept);
+    }
+
+    console.log(`  ${YELLOW}All indexes removed. Falling back to manual entry.${RESET}`);
+    console.log();
+  }
+
+  // ── Flow B: no registry matches ─────────────────────────────────────────
+  if (detectedIndexes.length === 0) {
+    console.log(`  ${YELLOW}No GitNexus indexes found for this project.${RESET}`);
+    console.log();
+    console.log(`  Run ${BOLD}npx gitnexus analyze${RESET} in your project root (and any`);
+    console.log(`  language sub-directories) to create indexes, then re-run`);
+    console.log(`  ${BOLD}npx gitnexus-gsd init${RESET}.`);
+    console.log();
+    console.log(`  ${DIM}Advanced: enter index names manually instead? [y/N]${RESET}`);
+    const manual = await askYesNo(rl, '', false);
+    if (!manual) {
+      return [{ name: 'my-project', scope: '.', detectChanges: true }];
+    }
+    console.log();
+  }
+
+  // ── Manual entry fallback ────────────────────────────────────────────────
+  console.log(`  Enter index names and their directory scopes.`);
+  console.log(`  ${DIM}Use . for the full repo root, or a sub-directory like backend/.${RESET}`);
+  console.log();
+
+  const indexes = [];
+  let addMore = true;
+  while (addMore) {
+    const name = await askText(rl, `Index name`);
+    if (!name) {
+      console.log(`  ${YELLOW}Name cannot be empty. Skipping.${RESET}`);
+    } else {
+      const scope = await askText(rl, `Scope for ${BOLD}${name}${RESET}`, '.');
+      indexes.push({ name, scope: scope || '.', detectChanges: false });
+    }
+    if (indexes.length > 0) {
+      addMore = await askYesNo(rl, `Add another index? ${DIM}[y/N]${RESET}`, false);
     }
   }
 
   if (indexes.length === 0) {
-    // Manual entry
-    console.log(`  Enter index names and their directory scopes.`);
-    console.log(`  ${DIM}Tip: use . for the full repo root.${RESET}`);
-    console.log();
-
-    let addMore = true;
-    while (addMore) {
-      const name = await askText(rl, `Index name`);
-      if (!name) {
-        console.log(`  ${YELLOW}Index name cannot be empty. Skipping.${RESET}`);
-      } else {
-        const scopePath = await askText(rl, `Directory scope for ${BOLD}${name}${RESET}`, '.');
-        indexes.push({ name, path: scopePath || '.' });
-      }
-
-      if (indexes.length > 0) {
-        addMore = await askYesNo(rl, `Add another index? ${DIM}[y/N]${RESET}`, false);
-      }
-    }
+    console.log(`  ${YELLOW}No indexes configured — using placeholder.${RESET}`);
+    console.log(`  ${DIM}Run \`npx gitnexus-gsd regenerate\` after indexing.${RESET}`);
+    return [{ name: 'my-project', scope: '.', detectChanges: true }];
   }
 
-  if (indexes.length === 0) {
-    // Fallback: single unnamed index
-    console.log(`  ${YELLOW}No indexes configured. Using a placeholder.${RESET}`);
-    console.log(`  ${DIM}Run \`npx gitnexus-gsd regenerate\` after running \`npx gitnexus analyze\`.${RESET}`);
-    indexes = [{ name: 'my-project', path: '.' }];
+  return resolveDetectChanges(indexes);
+}
+
+/**
+ * Mark which index should be used for gitnexus_detect_changes.
+ * Auto-selects the root-scope index; prompts when ambiguous.
+ */
+async function resolveDetectChanges(indexes) {
+  if (indexes.length === 1) {
+    return [{ ...indexes[0], detectChanges: true }];
   }
 
-  // For multi-index: pick which one is detect_changes
-  if (indexes.length > 1) {
-    console.log();
-    console.log(`  ${BOLD}Which index covers the full repo?${RESET}`);
-    console.log(`  ${DIM}This index is used for \`gitnexus_detect_changes\` (git history).${RESET}`);
-    console.log();
+  const rootIndex = indexes.findIndex((i) => i.scope === '.');
+  if (rootIndex !== -1) {
+    return indexes.map((idx, i) => ({ ...idx, detectChanges: i === rootIndex }));
+  }
 
+  // Ambiguous — ask
+  const rl = createRl();
+  try {
+    console.log();
+    console.log(`  ${BOLD}Which index covers the full repo?${RESET} ${DIM}(used for detect_changes)${RESET}`);
     for (let i = 0; i < indexes.length; i++) {
-      const idx = indexes[i];
-      const marker = idx.path === '.' ? ` ${DIM}(full repo)${RESET}` : '';
-      console.log(`    ${BOLD}${i + 1}.${RESET} ${idx.name}${marker}`);
+      console.log(`    ${BOLD}${i + 1}.${RESET}  ${indexes[i].name}  ${DIM}(${indexes[i].scope})${RESET}`);
     }
-    console.log();
-
-    // Default: the one with path === '.' or first
-    const defaultIdx = indexes.findIndex((i) => i.path === '.') + 1 || 1;
-    const choiceStr = await askText(rl, `Choice`, String(defaultIdx));
-    const choice = parseInt(choiceStr, 10);
-    const detectChangesIdx = (choice >= 1 && choice <= indexes.length) ? choice - 1 : 0;
-
-    indexes = indexes.map((idx, i) => ({
-      ...idx,
-      detectChanges: i === detectChangesIdx,
-    }));
-  } else {
-    indexes = [{ ...indexes[0], detectChanges: true }];
+    const choice = await askNumber(rl, `Choice`, 1, indexes.length, 1);
+    return indexes.map((idx, i) => ({ ...idx, detectChanges: i === choice - 1 }));
+  } finally {
+    rl.close();
   }
-
-  console.log();
-  console.log(`  ${GREEN}Index configuration:${RESET}`);
-  for (const idx of indexes) {
-    const dc = idx.detectChanges ? ` ${DIM}(detect_changes)${RESET}` : '';
-    console.log(`    ${BOLD}${idx.name}${RESET}  scope: ${idx.path}${dc}`);
-  }
-  console.log();
-
-  return indexes;
 }
 
 module.exports = { promptIndexes };

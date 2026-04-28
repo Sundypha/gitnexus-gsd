@@ -73,7 +73,7 @@ Use filesystem exploration when:
 
   // Multi-index: build routing table
   const routingRows = indexes.map((idx) => {
-    const scope = idx.path === '.' ? 'Full repo / root' : `\`${idx.path}\``;
+    const scope = idx.scope === '.' ? 'Full repo / root' : `\`${idx.scope}\``;
     return `| ${scope} | \`${idx.name}\` |`;
   });
   const routingTable = [
@@ -88,7 +88,7 @@ Use filesystem exploration when:
     .filter((idx) => idx !== primary)
     .map(
       (idx) =>
-        `- \`gitnexus_impact\` returns 0 upstream on code under \`${idx.path}\` -- **retry with \`repo: "${idx.name}"\` first**`
+        `- \`gitnexus_impact\` returns 0 upstream on code under \`${idx.scope}\` -- **retry with \`repo: "${idx.name}"\` first**`
     )
     .join('\n');
 
@@ -206,12 +206,12 @@ Use grep/files only when:
   // Multi-index
   const routingLines = indexes
     .map((idx) => {
-      const scope = idx.path === '.' ? 'full repo' : `\`${idx.path}\``;
+      const scope = idx.scope === '.' ? 'full repo' : `\`${idx.scope}\``;
       return `- ${scope} -- \`repo: "${idx.name}"\``;
     })
     .join('\n');
 
-  const exampleIndex = indexes.find((i) => i.path !== '.') || primary;
+  const exampleIndex = indexes.find((i) => i.scope !== '.') || primary;
 
   return `---
 name: gitnexus-gsd
@@ -287,7 +287,7 @@ this. Step-by-step per workflow: \`.cursor/rules/gitnexus-gsd-integration.mdc\`.
 
   const routingParts = indexes
     .map((idx) => {
-      const scope = idx.path === '.' ? 'full repo' : `\`${idx.path}\``;
+      const scope = idx.scope === '.' ? 'full repo' : `\`${idx.scope}\``;
       return `**\`${idx.name}\`** for ${scope}`;
     })
     .join(', ');

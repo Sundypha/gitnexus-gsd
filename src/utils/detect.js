@@ -1,6 +1,7 @@
 'use strict';
 
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 
 function hasGsdInstall(cwd) {
@@ -25,47 +26,59 @@ function hasExistingMdcRule(cwd) {
 }
 
 /**
- * Attempt to discover GitNexus index names and their scopes from the
- * project directory structure.
+ * Discover GitNexus indexes for this project by reading the global
+ * ~/.gitnexus/registry.json, which GitNexus maintains automatically
+ * after every `npx gitnexus analyze` run.
  *
- * Strategy 1: .gitnexus/<index-name>/ sub-directories
- * Strategy 2: gitnexus.json root file with a `name` field
+ * Matches registry entries whose `path` equals cwd or is a
+ * subdirectory of cwd (sub-indexes for monorepos).
  *
- * Returns an array of { name, path } objects (path is the directory
- * scope, defaulting to '.'). Returns [] if nothing is found.
+ * Each result includes a `scope` field: the path relative to cwd
+ * (e.g. '.' for the root index, 'backend' for a sub-directory index).
  *
- * @param {string} cwd
- * @returns {Array<{ name: string, path: string }>}
+ * Returns [] if the registry doesn't exist or no entries match.
+ *
+ * @param {string} cwd  Absolute path to the project root.
+ * @returns {Array<{ name: string, scope: string, stats?: object }>}
  */
 function detectGitNexusIndexes(cwd) {
-  // Strategy 1: .gitnexus/ directory -- each sub-directory is an index
-  const gitnexusDir = path.join(cwd, '.gitnexus');
-  if (fs.existsSync(gitnexusDir) && fs.statSync(gitnexusDir).isDirectory()) {
-    try {
-      const entries = fs.readdirSync(gitnexusDir, { withFileTypes: true });
-      const indexDirs = entries.filter((e) => e.isDirectory());
-      if (indexDirs.length > 0) {
-        return indexDirs.map((e) => ({ name: e.name, path: '.' }));
-      }
-    } catch {
-      // fall through
-    }
+  const registryPath = path.join(os.homedir(), '.gitnexus', 'registry.json');
+  if (!fs.existsSync(registryPath)) return [];
+
+  let registry;
+  try {
+    registry = JSON.parse(fs.readFileSync(registryPath, 'utf-8'));
+  } catch {
+    return [];
   }
 
-  // Strategy 2: gitnexus.json with a name field
-  const jsonPath = path.join(cwd, 'gitnexus.json');
-  if (fs.existsSync(jsonPath)) {
-    try {
-      const data = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
-      if (data.name) {
-        return [{ name: data.name, path: data.root || '.' }];
-      }
-    } catch {
-      // fall through
-    }
-  }
+  if (!Array.isArray(registry)) return [];
 
-  return [];
+  const normalizedCwd = cwd.endsWith(path.sep) ? cwd : cwd + path.sep;
+
+  return registry
+    .filter((entry) => {
+      if (!entry || typeof entry.path !== 'string') return false;
+      const entryPath = entry.path.endsWith(path.sep)
+        ? entry.path
+        : entry.path + path.sep;
+      // Match exact cwd or any subdirectory of cwd
+      return entryPath === normalizedCwd || entryPath.startsWith(normalizedCwd);
+    })
+    .map((entry) => {
+      const relative = path.relative(cwd, entry.path);
+      return {
+        name: entry.name,
+        scope: relative === '' ? '.' : relative,
+        stats: entry.stats,
+      };
+    })
+    // Root index first, then sub-indexes sorted by scope depth
+    .sort((a, b) => {
+      if (a.scope === '.') return -1;
+      if (b.scope === '.') return 1;
+      return a.scope.localeCompare(b.scope);
+    });
 }
 
 module.exports = {
